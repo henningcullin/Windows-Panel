@@ -39,18 +39,54 @@ function AutoStart {
         param ([String]$D, [String]$S)
         $items = @()
 
-        $DKey = Get-Item -Path ($regKeyList.$D)
-        $SKey = Get-Item -Path ($regKeyList.$S)
+        $DataKey = Get-Item -Path ($regKeyList.$D)
+        $StatusKey = Get-Item -Path ($regKeyList.$S)
 
-        foreach ($value in $DataKey.GetValueNames()) {
-            $path = $DKey.GetValue($value, $null)
-            $type = $DKey.GetValueKind($value)
+        foreach ($value in $Datakey.GetValueNames()) {
+            $path = $DataKey.GetValue($value, $null)
+            $type = $DataKey.GetValueKind($value)
+            $bin = $StatusKey.GetValue($value, $null)
+
+            if ($null -ne $bin) {
+                $data = [System.BitConverter]::ToString($bin) -replace '-'
+
+                $start = $data.Substring(0, 2)
+
+                $status = switch ([Int]$start) {
+                    2 { 'On' }
+                    6 { 'On' } # Add something to handle different permission levels
+                    3 { 'Off' }
+                    default { $null }
+                }
+
+                if ($null -eq $status) {
+                    continue
+                }
+                if ($status -eq 'off') {
+                    $end = $data.Substring(2 + 6)
+
+                    $hex = $start + $end
+
+                    # Convert hex to bytes
+                    $bytes = [byte[]]($hex -split '(..)' | Where-Object { $_ } | ForEach-Object { [Convert]::ToByte($_, 16) })
+
+                    # Convert the byte array to a long (Int64)
+                    $filetime = [BitConverter]::ToInt64($bytes, 1) # start from the second byte
+
+                    # Convert the FILETIME (represented as a long) to a DateTime object
+                    $time = [DateTime]::FromFileTimeUtc($filetime)
+                }
+                else {
+                    $time = $null
+                }
+            }
 
             $object = New-Object PSObject -Property @{
                 Name = $value
                 Type = $type
                 Path = $path
                 Status = $status
+                Time = $time
             }
 
             $items += $object
@@ -108,11 +144,11 @@ function AutoStart {
         $lbl.Font = New-Object System.Drawing.Font("Lucida Console",11,[System.Drawing.FontStyle]::Regular)
         $lbl.Width = 200
         $lbl.Height = 32
-        $lbl.Text = Get-Name $item.Data
+        $lbl.Text = Get-Name $item.Path
         
         $pbx = [System.Windows.Forms.PictureBox]::new()
 
-        $icon = Get-Icon $item.Data
+        $icon = Get-Icon $item.Path
 
         $pbx.Width = 64  # Adjust as needed
         $pbx.Height = 64  # Adjust as needed
@@ -122,8 +158,6 @@ function AutoStart {
         $itemBox.Controls.Add($lbl)
         $itemBox.Controls.Add($pbx)
         $flp.Controls.Add($itemBox)
-
-        Write-Output $item
     }
 
     $form = $script:form
@@ -144,6 +178,10 @@ function AutoStart {
     }
 
     $form.ShowDialog()
+
+
+
+    $LocalRegItems[0]
 }
 
 AutoStart
