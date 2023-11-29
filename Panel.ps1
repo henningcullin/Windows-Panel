@@ -5,8 +5,6 @@ $form.Text = "Windows Panel"
 $form.Size = [System.Drawing.Size]::new(1024, 640)
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
 $form.MaximizeBox = $false
-
-
 function AutoStart {
 
     $regKeyList = New-Object PSObject -Property @{
@@ -25,10 +23,6 @@ function AutoStart {
         USS = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\StartupFolder'
     }
 
-    $regObjects = New-Object PSObject -Property @{
-        
-    }
-
     function Format-Path {
         param ([String]$path)
         $path = $path -replace '(\s-.*$)'
@@ -44,7 +38,7 @@ function AutoStart {
 
         foreach ($value in $Datakey.GetValueNames()) {
             $path = $DataKey.GetValue($value, $null)
-            $type = $DataKey.GetValueKind($value)
+            $vtype = $DataKey.GetValueKind($value)
             $bin = $StatusKey.GetValue($value, $null)
 
             if ($null -ne $bin) {
@@ -53,16 +47,16 @@ function AutoStart {
                 $start = $data.Substring(0, 2)
 
                 $status = switch ([Int]$start) {
-                    2 { 'On' }
-                    6 { 'On' } # Add something to handle different permission levels
-                    3 { 'Off' }
+                    2 { $true }
+                    6 { $true } # Add something to handle different permission levels
+                    3 { $false }
                     default { $null }
                 }
 
                 if ($null -eq $status) {
                     continue
                 }
-                if ($status -eq 'off') {
+                if ($status -eq $false) {
                     $end = $data.Substring(2 + 6)
 
                     $hex = $start + $end
@@ -83,7 +77,9 @@ function AutoStart {
 
             $object = New-Object PSObject -Property @{
                 Name = $value
-                Type = $type
+                ValueType = $vtype
+                DataKey = $D
+                StatusKey = $S
                 Path = $path
                 Status = $status
                 Time = $time
@@ -132,56 +128,66 @@ function AutoStart {
             }
         }
 
-        $itemBox = [System.Windows.Forms.Panel]::new()
-        $itemBox.Height = 128
-        $itemBox.Width = 245
-        $itemBox.Tag = $item.Name
-        $itemBox.Add_Click({
-            Write-Host "Clicked on $($this.Tag)"
-        })
+        $pnl = [System.Windows.Forms.Panel]::new()
+        $pnl.Height = 128
+        $pnl.Width = 245
+        $pnl.Name = 'pnl_'+$item.Name
 
         $lbl = [System.Windows.Forms.Label]::new()
-        $lbl.Font = New-Object System.Drawing.Font("Lucida Console",11,[System.Drawing.FontStyle]::Regular)
+        $lbl.Font = New-Object System.Drawing.Font("Lucida Console", 11, [System.Drawing.FontStyle]::Regular)
         $lbl.Width = 200
         $lbl.Height = 32
+        $lbl.Name = 'lbl_Name_'+$item.Name
         $lbl.Text = Get-Name $item.Path
         
         $pbx = [System.Windows.Forms.PictureBox]::new()
 
         $icon = Get-Icon $item.Path
 
-        $pbx.Width = 64  # Adjust as needed
-        $pbx.Height = 64  # Adjust as needed
-        $pbx.Location = [System.Drawing.Point]::new(64,32)
+        $pbx.Width = 32  # Adjust as needed
+        $pbx.Height = 32  # Adjust as needed
+        $pbx.Location = [System.Drawing.Point]::new(64, 32)
+        $pbx.Name = $item.Name
         $pbx.Image = $icon.ToBitmap()
 
-        $itemBox.Controls.Add($lbl)
-        $itemBox.Controls.Add($pbx)
-        $flp.Controls.Add($itemBox)
+        $cbx = [System.Windows.Forms.Checkbox]::new()
+        $cbx.Location = [System.Drawing.Point]::new(30, 72)
+        $cbx.Name = 'cbx_Status_' + $item.Name
+        $cbx.Checked = $item.Status
+        $cbx.Add_CheckedChanged({
+            Write-Host $cbx
+        })
+
+
+
+        $pnl.Controls.Add($lbl)
+        $pnl.Controls.Add($pbx)
+        $pnl.Controls.Add($cbx)
+
+        $flp.Controls.Add($pnl)
     }
+
 
     $form = $script:form
     $form.Text = "AutoStart"
 
     $flp = [System.Windows.Forms.FlowLayoutPanel]::new()
     $flp.Dock = 'Fill'
+    $flp.Name = 'Panel'
     $form.Controls.Add($flp)
 
-    $GlobalRegItems = Get-RegItems -D 'MR' -S 'MSR'
-    $LocalRegItems = Get-RegItems -D 'UR' -S 'USR'
+    $Items += Get-RegItems -D 'MR' -S 'MSR'
+    $items += Get-RegItems -D 'UR' -S 'USR'
 
-    foreach ($Item in $GlobalRegItems) {
+    foreach ($Item in $Items) {
         Draw-Item $Item
     }
-    foreach ($Item in $LocalRegItems) {
-        Draw-Item $Item
+
+    foreach ($Item in $Items) {
+        Write-Output $flp.Controls['pnl_'+$Item.Name].Controls[2].Checked
     }
 
     $form.ShowDialog()
-
-
-
-    $LocalRegItems[0]
 }
 
 AutoStart
