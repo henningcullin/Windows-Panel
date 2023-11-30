@@ -46,6 +46,8 @@ function AutoStart {
 
                 $start = $data.Substring(0, 2)
 
+                $end = $data.Substring(2 + 6)
+
                 $status = switch ([Int]$start) {
                     2 { $true }
                     6 { $true } # Add something to handle different permission levels
@@ -56,8 +58,7 @@ function AutoStart {
                 if ($null -eq $status) {
                     continue
                 }
-                if ($status -eq $false) {
-                    $end = $data.Substring(2 + 6)
+                if ($status -eq $false -or $end -ge 1) {
 
                     $hex = $start + $end
 
@@ -77,6 +78,7 @@ function AutoStart {
 
             $object = New-Object PSObject -Property @{
                 Name = $value
+                ItemType = 'reg'
                 ValueType = $vtype
                 DataKey = $D
                 StatusKey = $S
@@ -91,7 +93,7 @@ function AutoStart {
     }
 
     function Toggle-Item {
-
+        
     }
     function Create-Item {
         if ($yourPath -match '%[a-zA-Z0-9_]+%') {
@@ -111,15 +113,10 @@ function AutoStart {
             return [System.Drawing.Icon]::ExtractAssociatedIcon($path)
         }
         function Get-Name {
-
             param ([String]$path)
-
             $path = Format-Path $path
-            
             $file = Get-ChildItem $path
-
             $fileDesc = $file.PSObject.Properties.Value.FileDescription
-
             if ($fileDesc -ne '') {
                 return $fileDesc
             }
@@ -133,17 +130,16 @@ function AutoStart {
         $pnl.Width = 245
         $pnl.Name = 'pnl_'+$item.Name
 
-        $lbl = [System.Windows.Forms.Label]::new()
-        $lbl.Font = New-Object System.Drawing.Font("Lucida Console", 11, [System.Drawing.FontStyle]::Regular)
-        $lbl.Width = 200
-        $lbl.Height = 32
-        $lbl.Name = 'lbl_Name_'+$item.Name
-        $lbl.Text = Get-Name $item.Path
+        $lblName = [System.Windows.Forms.Label]::new()
+        $lblName.Font = New-Object System.Drawing.Font("Lucida Console", 11, [System.Drawing.FontStyle]::Regular)
+        $lblName.Width = 200
+        $lblName.Height = 32
+        $lblName.Name = 'lbl_Name_'+$item.Name
+        $lblName.Text = Get-Name $item.Path
         
-        $pbx = [System.Windows.Forms.PictureBox]::new()
-
         $icon = Get-Icon $item.Path
 
+        $pbx = [System.Windows.Forms.PictureBox]::new()
         $pbx.Width = 32  # Adjust as needed
         $pbx.Height = 32  # Adjust as needed
         $pbx.Location = [System.Drawing.Point]::new(64, 32)
@@ -153,14 +149,24 @@ function AutoStart {
         $cbx = [System.Windows.Forms.Checkbox]::new()
         $cbx.Location = [System.Drawing.Point]::new(30, 72)
         $cbx.Name = 'cbx_Status_' + $item.Name
+        $cbx.Text = If ($item.Status) {'ON'} Else {'OFF'}
         $cbx.Checked = $item.Status
         $cbx.Add_CheckedChanged({
-            Write-Host $cbx
-        })
+            switch ($cbx.Checked) {
+                $true {
+                    $cbx.Text = 'ON'
+                    Write-Host 'SET KEY' $item.Name 'TO ON'
+                }
+                $false {
+                    $cbx.Text = 'OFF'
+                    Write-Host 'SET KEY' $item.Name 'TO OFF'
+                }
+            }
+        }.GetNewClosure())
 
 
 
-        $pnl.Controls.Add($lbl)
+        $pnl.Controls.Add($lblName)
         $pnl.Controls.Add($pbx)
         $pnl.Controls.Add($cbx)
 
@@ -181,10 +187,7 @@ function AutoStart {
 
     foreach ($Item in $Items) {
         Draw-Item $Item
-    }
-
-    foreach ($Item in $Items) {
-        Write-Output $flp.Controls['pnl_'+$Item.Name].Controls[2].Checked
+        Write-Output $Item
     }
 
     $form.ShowDialog()
