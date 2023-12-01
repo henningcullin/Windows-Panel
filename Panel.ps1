@@ -90,23 +90,7 @@ function AutoStart {
         $time = Get-Date
         $filetime = $time.ToFileTimeUtc()
         $arr = $null
-        switch ($state) {
-            '0' {
-                $arr = [byte[]]@('0', '0', '0', '0') + [System.BitConverter]::GetBytes($filetime)
-            }
-            '2' {
-                $arr = [byte[]]@('2', '0', '0', '0') + [System.BitConverter]::GetBytes($filetime)
-            }
-            '6' {
-                $arr = [byte[]]@('6', '0', '0', '0') + [System.BitConverter]::GetBytes($filetime)
-            }
-            '1' {
-                $arr = [byte[]]@('1', '0', '0', '0') + [System.BitConverter]::GetBytes($filetime)
-            }
-            '3' {
-                $arr = [byte[]]@('3', '0', '0', '0') + [System.BitConverter]::GetBytes($filetime)
-            }
-        }
+        $arr = [byte[]]@($state, '0', '0', '0') + [System.BitConverter]::GetBytes($filetime)
         if($null -eq $arr) {
             Write-Host "ERROR SETTING $name"
             return
