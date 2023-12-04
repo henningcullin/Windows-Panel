@@ -134,13 +134,11 @@ function AutoStart {
         $pnl = [System.Windows.Forms.Panel]::new()
         $pnl.Height = 128
         $pnl.Width = 190
-        $pnl.Name = 'pnl_'+$item.Name
 
         $lblName = [System.Windows.Forms.Label]::new()
         $lblName.Font = New-Object System.Drawing.Font("Lucida Console", 11, [System.Drawing.FontStyle]::Regular)
         $lblName.Width = 190
         $lblName.Height = 32
-        $lblName.Name = 'lbl_Name_'+$item.Name
         $lblName.TextAlign = 'TopCenter'
         $lblName.Text = Get-Name $item.Path
 
@@ -149,14 +147,11 @@ function AutoStart {
         $pbx.Width = 32  # Adjust as needed
         $pbx.Height = 32  # Adjust as needed
         $pbx.Location = [System.Drawing.Point]::new(82, 32)
-        $pbx.Name = $item.Name
         $pbx.Image = $icon.ToBitmap()
 
         $cbx = [System.Windows.Forms.Checkbox]::new()
         $cbx.Location = [System.Drawing.Point]::new(32, 72)
-        $cbx.Name = 'cbx_State_' + $item.Name
         $cbx.Text = If ($item.State) {'ON'} Else {'OFF'}
-        $cbx.Anchor = 'None'
         $cbx.Checked = $item.State
 
         $cbx.Add_CheckedChanged({
@@ -180,20 +175,37 @@ function AutoStart {
         $pnl.Controls.Add($pbx)
         $pnl.Controls.Add($cbx)
 
-        $flp.Controls.Add($pnl)
+        $mainPanel.Controls.Add($pnl)
     }
 
 
     $form = $script:form
     $form.Text = "AutoStart"
 
-    $flp = [System.Windows.Forms.FlowLayoutPanel]::new()
-    $flp.Dock = 'Fill'
-    $flp.Name = 'Panel'
-    $form.Controls.Add($flp)
+
+    $tableLayout = New-Object System.Windows.Forms.TableLayoutPanel
+    $tableLayout.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $tableLayout.RowCount = 2
+    $tableLayout.Padding = 0
+    $tableLayout.Margin = 0
+    $form.Controls.Add($tableLayout)
+    
+    $topBar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $topBar.Height = 35
+    $topBar.Dock = 'Fill'
+    $tableLayout.Controls.Add($topBar, 0, 0)
+
+    $btnNew = [System.Windows.Forms.Button]::new()
+    $btnNew.Text = 'New item'
+    $topBar.Controls.Add($btnNew)
+    
+    $mainPanel = New-Object System.Windows.Forms.FlowLayoutPanel
+    $mainPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $tableLayout.Controls.Add($mainPanel, 0, 1)
 
     $Items += Get-RegItems -D 'MR' -S 'MSR'
     $Items += Get-RegItems -D 'UR' -S 'USR'
+    $Items += Get-RegItems -D 'MWR' -S 'MS32'
 
     foreach ($Item in $Items) {
         Draw-Item $Item
